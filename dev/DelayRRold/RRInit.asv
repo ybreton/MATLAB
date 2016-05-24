@@ -1,0 +1,283 @@
+ function sd = RRInit(varargin)
+ 
+% sd = RRInit(fd)
+%
+% Initializes a single restaurant row session.
+% checks and loads keys, video-tracker-1, and spikes
+%
+% ADR 2011-12
+
+fd = pwd;
+useKeys = true;
+useEvents = false;
+timeBase = 1e-6;
+VTEtime = 2; % time interval for VTE calculations (sec)
+
+Behavior = [];         %the behavioral task
+Tones = true;          % tones
+Condition = '';        % experimental condition (Saline, drug, etc.)
+Dose = [];             % dose for experimental condition (mg/kg)
+Protocol = [];         % behavior, hyperdrive recording, pharmacology, etc
+Target = [];           % tetrode target structure (e.g. HC, OFC, vStr)
+Target2 = [];          % second tetrode target structure
+Target3 = [];
+Target4 =[];
+TetrodeDepths = [];  % estimated depth turned of each tetrode in microns
+UseDepthCSV = [];    % Use a csv containing depths for tetrodes
+TetrodeTargets = []; % 0 indicates tetrode Target #1, 1 indicates tetrode Target #2
+nCSCs = 28;          % Number of continuous sampling channels (Typically 24 TTs+4 refs)
+CSCReference = [];   % Enter 1,2,..,14 for the tetrode which the CSC channel was referenced during recording
+TimeOnTrack = [];
+TimeOffTrack = [];
+HasHCTheta = [];     % 1 indicates an auxilliary HC theta electrode was included.  This affects the patch panel configuration on Cheetah.
+PostFeed = [];
+nPellets = [];       % the number of pellets delivered at each zone
+FeederDelayList = [1:30];% the delay of each zone
+FeederProbList = [1]; % the probability of reward in each zone
+Blocks = [];
+Nudges = [];
+Weight = [];         % the weight of the rat in grams
+Note1=[];            % document any unusual events, task malfunctions, or unusual behavior (e.g. lost tracking lap 20, feeder misfires lap 20, ghost pixels, rat fell off track lap 20 etc).
+Note2=[];
+Note3=[];
+plotFlag=true;
+process_varargin(varargin);
+pushdir(fd);
+
+assert(exist(fd, 'dir')==7, 'Cannot find directory %s.', fd);
+
+[~, SSN, ~] = fileparts(fd);
+
+%-----------------------
+% DATAFILE
+%-----------------------
+
+datafn = FindFiles('RR-*.mat','Checksubdirs',0);
+if length(datafn)>1
+    for s = 1 : length(datafn)
+        disp('Multiple RR data files.')
+        sd0 = load(datafn{s});
+
+        nPellets = repmat(sd.nPellets,1,sd.TotalLaps+1);
+        nPellets = nPellets(1:length(sd.ZoneIn));
+        sd.nPellets = nPellets;
+
+        FeederList = repmat(sd0(s).FeederList,1,sd0(s).TotalLaps+1);
+        FeederList = FeederList(1:length(sd0(s).ZoneIn));
+        sd(s).FeederList = FeederList;
+        sd(s).FeederDelay = sd(s).FeederDelay(1:length(sd(s).ZoneIn));
+        sd(s).SubsessionsEnteringZone = ones(1,length(sd(s).EnteringZoneTime));
+        sd(s).SubsessionsExitZone = ones(1,length(sd(s).ExitZoneTime));
+        sd(s).SubsessionsFeeder = ones(1,length(sd(s).FeederTimes));
+    end
+else
+    disp('Single-session restaurant row.')
+    sd = load(datafn{1});
+    nPellets = repmat(sd.nPellets,1,sd.TotalLaps+1);
+    nPellets = nPellets(1:length(sd.ZoneIn));
+    sd.nPellets = nPellets;
+    FeederList = repmat(sd.FeederList,1,sd.TotalLaps+1);
+    FeederList = FeederList(1:length(sd.ZoneIn));
+    sd.FeederList = FeederList;
+    sd.FeederDelay = sd.FeederDelay(1:length(sd.ZoneIn));
+    sd.SubsessionsEnteringZone = ones(1,length(sd.EnteringZoneTime));
+    sd.SubsessionsExitZone = ones(1,length(sd.ExitZoneTime));
+    sd.SubsessionsFeeder = ones(1,length(sd.FeederTimes));
+end
+
+%-----------------------
+% KEYS
+%-----------------------
+if useKeys
+    keysfn = [strrep(SSN, '-', '_') '_keys'];
+    if ~(exist(keysfn, 'file')==2)
+        
+        %GET TIME ON TRACK, OFF TRACK
+        disp('Obtaining TimeOnTrack, TimeOffTrack information... ')
+        
+        zipfile = FindFiles('*.zip');
+        filesPre = FindFiles('*.*','CheckSubdirs',false);
+        unzipped = false;
+        if ~isempty(zipfile)
+            unzip(zipfile{1})
+            unzipped = true;
+        end
+        filesPost = FindFiles('*.*','CheckSubdirs',false);
+        newFiles = filesPost(~ismember(filesPost,filesPre));
+
+        nvtfile = FindFiles('*.nvt');
+        
+        if all(isnan(sd.SessionStartTime))
+            [pathname,filename,ext] = fileparts(nvtfile{1});
+            [x,y,phi] = LoadVT_lumrg(nvtfile{1});
+
+            T = x.range;
+            D = x.data;
+            sd.SessionStartTime = min(T(~isnan(D)));
+        else
+            sd.SessionStartTime = sd.SessionStartTime*timeBase;
+        end
+        TimeOnTrack = min(sd.SessionStartTime);
+        SessionStartTime = sd.SessionStartTime;
+        TimeOffTrack = findRRendTime(nvtfile{1},SessionStartTime(end),'plotFlag',plotFlag);
+        
+        if unzipped
+            for iF = 1 : length(newFiles)
+                delete(newFiles{iF});
+            end
+        end
+
+        
+        disp(sprintf('No keys file. Generating %s.',keysfn))
+        RR_CreateKeys('Behavior', Behavior,...
+            'Tones',Tones,...
+            'Condition',Condition,...
+            'Dose',Dose,...
+            'Protocol',Protocol,...
+            'Target',Target,...
+            'Target2',Target2,...
+            'Target3',Target3,...
+            'Target4',Target4,...
+            'TetrodeDepths',TetrodeDepths,...
+            'UseDepthCSV',UseDepthCSV,...
+            'TetrodeTargets',TetrodeTargets,...
+            'nCSCs',nCSCs,...
+            'CSCReference',CSCReference,...
+            'TimeOnTrack',TimeOnTrack,...
+            'TimeOffTrack',TimeOffTrack,...
+            'HasHCTheta',HasHCTheta,...
+            'PostFeed',PostFeed,...
+            'nPellets',nPellets,...
+            'FeederDelayList',FeederDelayList,...
+            'FeederProbList',FeederProbList,...
+            'Blocks',Blocks,...
+            'Nudges',Nudges,...
+            'Weight',Weight,...
+            'Note1',Note1,...
+            'Note2',Note2,...
+            'Note3',Note3);
+    end
+    assert(exist([keysfn '.m'], 'file')==2, 'Cannot find keys file %s.', keysfn);
+    eval(keysfn)
+    disp('Experiment keys...')
+%     for f = 1 : length(sd)
+%         sd(f).ExpKeys = ExpKeys;
+%         sd(f).ExpKeys.SSN = SSN;
+%         sd(f).ExpKeys.fd = fd;
+%     end
+    eval('ExpKeys');
+    sd.ExpKeys = ExpKeys;
+    sd.ExpKeys.SSN = SSN;
+    sd.ExpKeys.fd = fd;
+    
+    assert(~iscell(ExpKeys.Behavior), 'Multiple Behaviors');
+else
+    ExpKeys.TimeOnTrack = 0;
+    ExpKeys.TimeOffTrack = inf;
+end
+
+%------------------------
+% VIDEO TRACKING
+%------------------------
+W = warning();
+warning off MATLAB:unknownObjectNowStruct
+vtfn = fullfile(fd, [SSN '-vt.mat']);
+if ~(exist(vtfn, 'file')==2)
+    zipfile = FindFiles('*.zip');
+    filesPre = FindFiles('*.*','CheckSubdirs',false);
+    unzipped = false;
+    if ~isempty(zipfile)
+        unzip(zipfile{1})
+        unzipped = true;
+    end
+    filesPost = FindFiles('*.*','CheckSubdirs',false);
+    newFiles = filesPost(~ismember(filesPost,filesPre));
+    
+    nvtfile = FindFiles('*.nvt');
+    if ~isempty(nvtfile)
+        disp('Video tracking... ')
+        for iNVT = 1 : length(nvtfile)
+            [pathname,filename,ext] = fileparts(nvtfile{iNVT});
+            [x,y,phi] = LoadVT_lumrg(nvtfile{1});
+            if iNVT>1
+                save(sprintf('%s-vt%d.mat',SSN,iNVT),'x','y','phi')
+                eval(sprintf('sd.x%d = x.restrict(ExpKeys.TimeOnTrack,ExpKeys.TimeOffTrack);',iNVT))
+                eval(sprintf('sd.y%d = y.restrict(ExpKeys.TimeOnTrack,ExpKeys.TimeOffTrack);',iNVT))
+            else
+                save(sprintf('%s-vt.mat',SSN),'x','y','phi')
+                sd.x = x.restrict(min(ExpKeys.TimeOnTrack), max(ExpKeys.TimeOffTrack));
+                sd.y = y.restrict(min(ExpKeys.TimeOnTrack), max(ExpKeys.TimeOffTrack));
+            end
+            destination = sprintf('%s-%s.nvt',SSN,filename);
+            eval(sprintf('!rename %s %s',[filename ext],destination));
+        end
+    end
+    if unzipped
+        for iF = 1 : length(newFiles)
+            delete(newFiles{iF});
+        end
+    end
+    
+end
+if exist(vtfn, 'file')
+	load(vtfn);
+	if exist('Vt', 'var'), x = Vt.x; y = Vt.y; end
+	if isstruct(x), x = tsd(x); end
+	if isstruct(y), y = tsd(y); end
+	if exist('phi', 'var') && isstruct(phi), phi = tsd(phi); end
+    for f = 1 : length(sd)
+        sd(f).x = x.restrict(min(ExpKeys.TimeOnTrack), max(ExpKeys.TimeOffTrack));
+        sd(f).y = y.restrict(min(ExpKeys.TimeOnTrack), max(ExpKeys.TimeOffTrack));
+    end
+end
+warning(W);
+
+
+x0 = sd(1).x.restrict(sd(1).EnteringZoneTime(1),sd(1).ExitZoneTime(1));
+if isempty(x0.data)
+    for f = 1 : length(sd)
+        sd(f).EnteringZoneTime = sd(f).EnteringZoneTime*timeBase;
+        sd(f).ExitZoneTime = sd(f).ExitZoneTime*timeBase;
+        sd(f).EnteringCPTime = sd(f).EnteringZoneTime;
+        sd(f).ExitingCPTime = sd(f).EnteringZoneTime+VTEtime;
+    end
+end
+x0 = sd(1).x.restrict(sd(1).FeederTimes(1),sd(1).FeederTimes(1)+1);
+if isempty(x0.data)
+    for f = 1 : length(sd)
+        sd(f).FeederTimes = sd(f).FeederTimes*timeBase;
+    end
+end
+
+
+%-------------------------
+% EVENTS
+%-------------------------
+if useEvents
+    disp('Processing events... ')
+    eventsfn = fullfile(fd, [SSN '-events.Nev']);
+    assert(exist(eventsfn, 'file')==2, 'Cannot find events file %s.', eventsfn);
+end
+%-------------------------
+% SPIKES
+%-------------------------
+disp('Adding spike train information... ')
+fc = FindFiles('*.t', 'CheckSubdirs', 0);
+S = LoadSpikes(fc);
+for iC = 1:length(S)
+    S{iC} = S{iC}.restrict(min(ExpKeys.TimeOnTrack), max(ExpKeys.TimeOffTrack));
+end
+
+for f = 1 : length(sd)
+
+    sd(f).S = S;
+    sd(f).fc = fc;
+    for iC = 1:length(fc)
+        [~, sd(f).fn{iC}] = fileparts(sd(f).fc{iC});
+        sd(f).fn{iC} = strrep(sd(f).fn{iC}, '_', '-');
+    end
+end
+
+
+popdir;
+

@@ -1,0 +1,51 @@
+function sd = zIdPhi_control(sd,varargin)
+% Control for zIdPhi by taking path from zone entry to VTEtime sec before
+% zone entry (or feeder fire+consumption time for rewarded/previous zone
+% entry+larger of consumption time and VTEtime), whichever is latest.
+% Path begins either:
+%       - consumptionTime seconds after feeder fire when reward is
+%       delivered, or
+%       - consumptionTime seconds after zone entry when reward is not
+%       delivered
+% sd = zIdPhi_control(sd)
+% where     sd      is a standard session data structure
+%
+% OPTIONAL ARGUMENTS:
+% ******************
+%           
+
+VTEtime = 3;
+consumptionTime=5;
+debug=true;
+process_varargin(varargin);
+
+stayGo = ismember(sd.ExitZoneTime,sd.FeederTimes);
+
+Next = sd.NextZoneTime-sd.x.dt;
+Rew = nan(length(Next),1);
+Rew(stayGo) = sd.FeederTimes+consumptionTime;
+Rew(~stayGo) = sd.EnteringZoneTime(~stayGo)+max(VTEtime,consumptionTime);
+
+tend = Next(:);
+tstart = max(Rew(:),tend-VTEtime);
+tstart(1) = nan;
+tend(end) = nan;
+
+sd0 = sd;
+sd0.EnteringCPTime = tstart;
+sd0.ExitingCPTime = tend;
+sd0 = zIdPhi(sd0);
+
+sd.IdPhi_control = nan(length(sd.EnteringZoneTime),1);
+sd.zIdPhi_control = nan(length(sd.EnteringZoneTime),1);
+sd.IdPhi_control = sd0.IdPhi;
+sd.zIdPhi_control = sd0.zIdPhi;
+
+if debug
+    idinf = sd0.IdPhi==0;
+    idnan = isnan(sd0.IdPhi);
+    [f,bin]=hist((log10(sd0.IdPhi(~idinf&~idnan))),ceil(sqrt(sum(~idinf(:)&~idnan(:)))));
+    clf; 
+    bar(bin,f/sum(f),1); 
+    title(sprintf('%s\nSkew=%.1f',sd.ExpKeys.SSN,skewness(log10(sd0.IdPhi(~idinf&~idnan))))); drawnow
+end

@@ -1,0 +1,45 @@
+function pellets = RRGetPellets(sd,varargin)
+% Produces pellets matrix.
+% pellets = RRGetPellets(sd)
+% where     pellets is nSubSess x trial vector of pellets delivered,
+%           
+%           sd is nSubsess x 1 cell array of sd files.
+%
+% OPTIONAL:
+% nLaps     (default 200)   maximum number of laps
+% nZones    (default 4)     number of zones
+%
+
+nLaps = 200;
+nZones = 4;
+process_varargin(varargin);
+
+
+pellets = nan(length(fn)*nZones,nLaps*nZones);
+
+for s = 1 : length(sd)
+        if length(sd)>4
+            minsPerSubsess = sd.maxTimeToRun/60;
+            fprintf('%d x %.0f: Subsess %d',length(sd),minsPerSubsess,s);
+        end
+        k = k+1;
+        zone = sd(s).ZoneIn;
+    
+        pt = sd(s).nPellets;
+        nReps = ceil(length(zone)/length(pt));
+        pt = repmat(pt,1,nReps);
+        pt = pt(1:length(zone));
+        
+        nc = max(nc,length(zone));
+        pellets(k,1:length(zone)) = pt;
+        
+        fnOut{k} = fn{f};
+        
+    end
+    
+    popdir;
+end
+
+% triage extra columns
+pellets = pellets(1:k,1:nc);
+fnOut = fnOut(1:size(pellets,1));

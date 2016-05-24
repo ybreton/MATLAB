@@ -1,0 +1,22 @@
+FileBase	ClusterK.FET.1
+ElecNo	0
+MinClusters	2
+MaxClusters	7
+MaxPossibleClusters	7
+nStarts	1
+RandomSeed	1
+Debug	0
+Verbose	1
+UseFeatures	1111
+PenaltyMix	0.000000
+DistDump	0
+DistThresh	6.907755
+FullStepEvery	10
+ChangedThresh	0.050000
+Log	1
+Screen	0
+MaxIter	500
+StartCluFile	
+fSaveModel	1
+SplitEvery	50
+help	0

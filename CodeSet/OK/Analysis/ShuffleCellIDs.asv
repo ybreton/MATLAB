@@ -1,0 +1,24 @@
+function S = ShuffleCellIDs(S)
+% S = ShuffleCellIDs(S)
+%
+% INPUTS
+%   S - cell array of ts
+%
+% OUTPUTS
+%   S - cell array of ts
+%
+% Shuffles Cell IDs so that the time of each spike is a constant, but the cell to which it was assigned can change.
+
+%-----------------
+% CHECKS
+%-----------------
+assert(nargin==1, 'Call with S');
+assert(isa(S, 'cell'), 'S is not a cell array');
+assert(all(cellfun('isclass', S, 'ts')), 'S is not all ts objects.');
+
+%-----------------
+% GO
+%-----------------
+nSpikes = sum(cellfun(@length, cellfun(@data, S, 'UniformOutput',false)));
+
+t = nan(nSpikes, 1

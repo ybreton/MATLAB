@@ -1,0 +1,33 @@
+function staygo = RRGetStayGo(sd,varargin)
+% Produces stay/go boolean matrix.
+% staygo = RRstaygo(sd)
+% where     staygo is nSubsess x trial boolean of stay (1), go (0), or no lap (nan)
+%           
+%           sd is nSubSess x 1 structure array of sd files.
+%
+% OPTIONAL:
+% nLaps     (default 200)   maximum number of laps
+% nZones    (default 4)     number of zones
+%
+
+nLaps = 200;
+nZones = 4;
+process_varargin(varargin);
+
+sd = sd(:);
+
+staygo = nan(length(sd),nLaps*nZones);
+for s = 1 : length(sd)
+    sg = ismember(sd(s).ExitZoneTime,sd(s).FeederTimes);
+    if sg(end)==0
+        % When session ends, it is either counting down or not.
+        % If it was counting down, it will be scored as a skip.
+        % If it was not counting down, it will be scored as a stay.
+        % Skipped the last zone entered means the stay is censored.
+        sg(end) = nan;
+    end
+
+    staygo(s,1:length(sg)) = double(sg(:)');
+end
+
+% triage extra columns

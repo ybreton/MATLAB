@@ -1,0 +1,11 @@
+executable = C:\Home\adredish\matlab\ADRLAB_CodeSet\MClust-4.0\MClust\+KlustaKwik\KlustaKwik-1_7.exe
+universe = vanilla
+arguments = sampleneuralynxtt 1 -Screen 0 -MinClusters 2 -MaxClusters 6 -MaxPossibleClusters 6 -UseFeatures 11
+output = sampleneuralynxtt.out
+error = sampleneuralynxtt.error
+log = sampleneuralynxtt.log
+Requirements = (OpSys == "WINNT61" || OpSys =="WINNT51")
+should_transfer_files = YES
+when_to_transfer_output = ON_EXIT
+transfer_input_files = sampleneuralynxtt.fet.1
+queue

@@ -1,0 +1,181 @@
+fn = FindFiles('RR-*.mat');
+fd = cell(length(fn),1);
+for iF=1:length(fn); fd{iF}=fileparts(fn{iF}); end;
+fd = unique(fd);
+%%
+binsPerSegment = 8;
+nSegments = 12;
+%%
+Condition = cell(length(fd),1);
+pRegret = nan(length(fd),800,binsPerSegment*nSegments);
+pRejoice = nan(length(fd),800,binsPerSegment*nSegments);
+pDisapp1 = nan(length(fd),800,binsPerSegment*nSegments);
+pDisapp2 = nan(length(fd),800,binsPerSegment*nSegments);
+pAll = nan(length(fd),800,binsPerSegment*nSegments);
+for iD = 1 : length(fd)
+    pushdir(fd{iD});
+    disp(fd{iD});
+    
+    sd = RRInit;
+    Condition{iD} = sd(1).ExpKeys.Condition;
+    [sd.x,sd.y] = RRcentreMaze(sd);
+    [sd.linPos,sd.landmarks] = RRlinearizedPos3Seg(sd,'nBins',binsPerSegment*nSegments);
+    % Each segment (zone in->arm->feeder->arm->zone out) has 8 location
+    % bins.
+    RRplotLinearizedOnMaze(sd);
+    drawnow;
+    
+    idTT = RRassignTetrodeClusters(sd);
+    ISI = nan(length(sd.S),1);
+    spikes = nan(length(sd.S),1);
+    for iC=1:length(sd.S);
+        ISI(iC) = nanmean(diff(sd.S{iC}.data));
+        spikes(iC) = length(data(sd.S{iC}.restrict(sd.ExpKeys.TimeOnTrack,sd.ExpKeys.TimeOffTrack)));
+    end
+    SR = 1./ISI;
+    idInterNrn = SR>2;
+    idSpks = spikes>=40;
+    
+    disp('Tuning curves...')
+    TC = TuningCurves(sd.S(idTT(1,~idInterNrn&idSpks)),{{sd.linPos binsPerSegment*nSegments}});
+    
+    disp('Q matrix...')
+    Q = MakeQfromS(sd.S(idTT(1,~idInterNrn&idSpks)),0.125);
+    disp('Bayesian decoding...')
+    B = BayesianDecoding(Q,TC);
+    
+    regret = RRGetRegret(sd);
+    disapp = RRGetDisappointment(sd);
+    rejoice = RRGetRejoice(sd);
+    
+    Tregret = sd.EnteringZoneTime(regret(1:length(sd.ZoneIn))==1);
+    Tdisapp1 = sd.EnteringZoneTime(disapp.Disapp1(1:length(sd.ZoneIn))==1);
+    Tdisapp2 = sd.EnteringZoneTime(disapp.Disapp2(1:length(sd.ZoneIn))==1);
+    Trejoice = sd.EnteringZoneTime(rejoice(1:length(sd.ZoneIn))==1);
+    
+    z = tsd(sd.EnteringZoneTime',sd.ZoneIn');
+    bin0 = linspace(B.min(1),B.max(1),B.nBin(1));
+    
+    I = nan(length(Tregret),B.nBin);
+    for iTrl=1:length(Tregret)
+        iZ = z.data(Tregret(iTrl));
+        bin = bin0 - sd.landmarks.ZoneEntry.LinPos(iZ)+1;
+        bin(bin<1) = sd.landmarks.EoM.LinPos+bin(bin<1);
+        [~,I(iTrl,:)] = sort(bin);
+    end
+    p0 = B.pxs.data(Tregret);
+    for iTrl=1:size(p0,1)
+        pRegret(iD,iTrl,:) = p0(iTrl,I(iTrl,:));
+    end
+    plot(squeeze(pRegret(iD,:,:))')
+    xtick = [sd.landmarks.ZoneEntry.LinPos;sd.landmarks.ChoicePoint.LinPos;sd.landmarks.Feeder.LinPos;sd.landmarks.ArmExit.LinPos];
+    xtick = xtick(:);
+    xticklabel = {'Current' 'CP' 'Feeder' 'Exit' 'Next' 'CP' 'Feeder' 'Exit' 'Opposite' 'CP' 'Feeder' 'Exit' 'Previous' 'CP' 'Feeder' 'Exit'};
+    set(gca,'xtick',xtick);
+    set(gca,'xticklabel',[])
+    yrng = diff(get(gca,'ylim'));
+    for iL=1:4:length(xticklabel)
+        th=text(xtick(iL),0,xticklabel{iL});
+        set(th,'VerticalAlignment','top')
+    end
+    for iL=2:4:length(xticklabel)
+        th=text(xtick(iL),-.015*yrng,xticklabel{iL});
+        set(th,'VerticalAlignment','top')
+    end
+    for iL=3:4:length(xticklabel)
+        th=text(xtick(iL),max(get(gca,'ylim')),xticklabel{iL});
+        set(th,'VerticalAlignment','bottom')
+    end
+    for iL=4:4:length(xticklabel)
+        th=text(xtick(iL),0,xticklabel{iL});
+        set(th,'VerticalAlignment','top')
+    end
+    set(gca,'xlim',[0 sd.landmarks.EoM.LinPos+1])
+    title('Regret entries')
+    drawnow
+    
+    I = nan(length(Tdisapp1),B.nBin);
+    for iTrl=1:length(Tdisapp1)
+        iZ = z.data(Tdisapp1(iTrl));
+        bin = bin0 - sd.landmarks.ZoneEntry.LinPos(iZ)+1;
+        bin(bin<1) = sd.landmarks.EoM.LinPos+bin(bin<1);
+        [~,I(iTrl,:)] = sort(bin);
+    end
+    p0 = B.pxs.data(Tdisapp1);
+    for iTrl=1:size(p0,1)
+        pDisapp1(iD,iTrl,:) = p0(iTrl,I(iTrl,:));
+    end
+    
+    I = nan(length(Tdisapp2),B.nBin);
+    for iTrl=1:length(Tdisapp2)
+        iZ = z.data(Tdisapp2(iTrl));
+        bin = bin0 - sd.landmarks.ZoneEntry.LinPos(iZ)+1;
+        bin(bin<1) = sd.landmarks.EoM.LinPos+bin(bin<1);
+        [~,I(iTrl,:)] = sort(bin);
+    end
+    p0 = B.pxs.data(Tdisapp2);
+    for iTrl=1:size(p0,1)
+        pDisapp2(iD,iTrl,:) = p0(iTrl,I(iTrl,:));
+    end
+    
+    I = nan(length(Trejoice),B.nBin);
+    for iTrl=1:length(Trejoice)
+        iZ = z.data(Trejoice(iTrl));
+        bin = bin0 - sd.landmarks.ZoneEntry.LinPos(iZ)+1;
+        bin(bin<1) = sd.landmarks.EoM.LinPos+bin(bin<1);
+        [~,I(iTrl,:)] = sort(bin);
+    end
+    p0 = B.pxs.data(Trejoice);
+    for iTrl=1:size(p0,1)
+        pRejoice(iD,iTrl,:) = p0(iTrl,I(iTrl,:));
+    end
+    
+    I = nan(length(sd.EnteringZoneTime),B.nBin);
+    for iTrl=1:length(sd.EnteringZoneTime)
+        iZ = z.data(sd.EnteringZoneTime(iTrl));
+        bin = bin0 - sd.landmarks.ZoneEntry.LinPos(iZ)+1;
+        bin(bin<1) = sd.landmarks.EoM.LinPos+bin(bin<1);
+        [~,I(iTrl,:)] = sort(bin);
+    end
+    p0 = B.pxs.data(sd.EnteringZoneTime);
+    for iTrl=1:size(p0,1)
+        pAll(iD,iTrl,:) = p0(iTrl,I(iTrl,:));
+    end
+    plot(squeeze(pAll(iD,:,:))')
+    xtick = [sd.landmarks.ZoneEntry.LinPos;sd.landmarks.ChoicePoint.LinPos;sd.landmarks.Feeder.LinPos;sd.landmarks.ArmExit.LinPos];
+    xtick = xtick(:);
+    xticklabel = {'Current' 'CP' 'Feeder' 'Exit' 'Next' 'CP' 'Feeder' 'Exit' 'Opposite' 'CP' 'Feeder' 'Exit' 'Previous' 'CP' 'Feeder' 'Exit'};
+    set(gca,'xtick',xtick);
+    set(gca,'xticklabel',[])
+    yrng = diff(get(gca,'ylim'));
+    for iL=1:4:length(xticklabel)
+        th=text(xtick(iL),0,xticklabel{iL});
+        set(th,'VerticalAlignment','top')
+    end
+    for iL=2:4:length(xticklabel)
+        th=text(xtick(iL),-.015*yrng,xticklabel{iL});
+        set(th,'VerticalAlignment','top')
+    end
+    for iL=3:4:length(xticklabel)
+        th=text(xtick(iL),-.015*yrng,xticklabel{iL});
+        set(th,'VerticalAlignment','top')
+    end
+    for iL=4:4:length(xticklabel)
+        th=text(xtick(iL),0,xticklabel{iL});
+        set(th,'VerticalAlignment','top')
+    end
+    set(gca,'xlim',[0 sd.landmarks.EoM.LinPos+1])
+    title('All entries')
+    drawnow
+end
+%%
+idVeh = strcmpi('Vehicle',Condition)|strcmpi('Saline',Condition);
+idCNO = strcmpi('CNO',Condition)|strcmpi('Drug',Condition);
+
+mpRegret = squeeze(nanmean(pRegret,2));
+eh=errorbar(nanmean(mpRegret(idVeh,:),1),nanstderr(mpRegret(idVeh,:)));
+plot(nanmean(mpRegret(idVeh,:),1),'bo','markerfacecolor','w')
+set(eh,'color','b')
+hold on
+
+hold off
