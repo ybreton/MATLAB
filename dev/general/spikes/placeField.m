@@ -60,9 +60,9 @@ function PF = placeField(s,x,y,varargin)
 %   minimum percentage maximum firing rate for place fields
 % minOcc    (default 0.25 sec)
 %   minimum occupancy for place fields
-% maxDist   (default 1 bins)
+% maxDist   (default 2 bins)
 %   furthest two spatial bins can be apart and still count as 1 field
-% minPFsz   (default 5 bins)
+% minPFsz   (default 9 bins)
 %   minimum area of place field
 % debug     (default false)
 %   produce debugging plots of place fields
@@ -87,8 +87,8 @@ nybins = 64;    % number of x bins
 minSpeed = 5;   % minimum rat speed through place field
 minFRpct = 5;   % minimum pct firing rate of maximum in a place field
 minOcc = 0.25;  % mininum occupancy of a spatial bin in a place field
-maxDist = 1;    % maximum number of bins to merge place fields
-minPFsz = 5;   % minimum coverage of a place field
+maxDist = 2;    % maximum number of bins to merge place fields
+minPFsz = 9;   % minimum coverage of a place field
 debug=false;    % debugging flag
 process_varargin(varargin);
 

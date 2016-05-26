@@ -1,21 +1,43 @@
 function [t64,success] = nttclu2t64(filenames,varargin)
 % Converts clusters indicated in files with filenames:
-%
 % filename{i}.clusters, 
 % filename{i}.ntt
-%
 % to a uint64-formatted t-file with name:
 % 
 % filename{i}_0j._t     if clusters{j}.name contains "maybe", "cut", "doublet", or "ghost"
 %                       or filename{i}_0j._t already exists
 %
-% filename{i}_0j.t      otherwise.
+% filename{i}_0j.t      if filename{i}_0j.t already exists
+%						or clusters{j}.name does not contain "maybe", "cut", "doublet", or "ghost"
 %
+% [t64,success] = nttclu2t64(filenames)
+% where 	t64 		is a cell array of the t64 file names (full path)
+% 			success 	is a flag indicating successful file open/write
 %
+% 			filenames 	is a cell array of the file prefixes to be used for converting to t64
+%
+% OPTIONAL ARGUMENTS:
+% ******************
+% debug 		(default false)
+% 	Displays debugging plots indicating cluster number vs. spike time as recorded on disk
+% progressBar 	(default true)
+% 	Displays a progress bar that updates with every file. Requires the timedProgressBar class.
+% name_t 		(default {'maybe' 'cut' 'cutoff' 'doublet' 'ghost' 'bad'})
+% 	Strings contained in cluster names that should be automatically dumped to _t files.
+%
+% Example:
+% >> [t64,success] = nttclu2t64({'R000-2016-05-26-TT1'})
+% 	will search current directory for R000-2016-05-26-TT1.clusters and R000-2016-05-26-TT1.ntt,
+% 	extract the relevant information from the .clusters and .ntt file,
+% 	identify for each cluster whether cluster name contains any of the name_t strings,
+% 	identify for each cluster whether a ._t or .t file already exists, and
+% 	write the file R000-2016-05-26-TT1_xx.t64 (or R000-2016-05-26-TT1_xx._t64) as appropriate
+% 	using uint64 spike time stamps.
 %
 
-debug = true;
+debug = false;
 progressBar = true;
+name_t = {'maybe' 'cut' 'cutoff' 'doublet' 'ghost' 'bad'};
 process_varargin(varargin);
 
 if ischar(filenames)
@@ -61,7 +83,7 @@ for iF=1:length(filenames)
 
             C = clu.Clusters{iC};
             name = C.name;
-            use__t = ~isempty(regexpi(name,'maybe')) | ~isempty(regexpi(name,'cut')) | ~isempty(regexpi(name,'doublet')) | ~isempty(regexpi(name,'ghost'));
+            use__t = strCheckANY(name_t,name); % Are any of the strings in name_t contained in name?
             
             pushdir(fd);
             if exist(fullfile(fd,[fn2 '.t']),'file')==2
@@ -73,9 +95,9 @@ for iF=1:length(filenames)
             popdir;
             
             if use__t
-                fx2 = '._t';
+                fx2 = '._t64';
             else
-                fx2 = '.t';
+                fx2 = '.t64';
             end
             fn2 = fullfile(fd,[fn2 fx2]);
             disp(['Processing file ' fn2])
@@ -125,6 +147,12 @@ for iF=1:length(filenames)
     end
 end
 pbh.close();
+
+function TF = stringCheckANY(ca,name)
+TF = false;
+for iN=1:length(ca)
+	TF = TF | ~isempty(regexpi(name,ca{iN}))
+end
 
 function WriteHeader(fp,varargin)
 MCS.VERSION = 4.3;

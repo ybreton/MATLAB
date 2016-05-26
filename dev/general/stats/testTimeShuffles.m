@@ -1,4 +1,4 @@
-function [h,p,d,x,H0,bootstat,xsam] = testTimeShuffles(S,tIn,tOut,tStart,tEnd,varargin)
+function [h,p,d,z,x,H0,SD0,bootstat,xsam] = testTimeShuffles(S,tIn,tOut,tStart,tEnd,varargin)
 % Tests whether spike rate between tIn and tOut is different from uniformly
 % sampled windows between tStart to tEnd, excluding those overlapping with
 % tIn to tOut.
@@ -16,16 +16,25 @@ function [h,p,d,x,H0,bootstat,xsam] = testTimeShuffles(S,tIn,tOut,tStart,tEnd,va
 %           tEnd        is 1x1 scalar with latest time to sample from
 %                           (e.g., sd.ExpKeys.TimeOffTrack)
 %
-% [h,p,d,x,H0,bootstat] = testSpikeShuffles(...)
+% [h,p,d,x,H0,SD0,bootstat] = testSpikeShuffles(...)
 % where     p           is nCell x 1 proportion of spike rate means from
 %                           shuffled times greater/smaller/more extreme
 %                           than those in S
 %           d           is nCell x 1 difference between spike rate and
 %                           shuffled spike rate
+%           z           is nCell x 1 normalized difference between spike
+%                           rate and shuffled spike rate
+%                           (using diffun of the distribution of bootfun
+%                           estimates, in units of spreadfun of the
+%                           distribution of bootfun estimates)
 %           x           is nCell x 1 sample spike rate
 %           H0          is nCell x 1 shuffled null hypothesis spike rate
 %                           (using difffun of the distribution of bootfun
 %                           estimates)
+%           SD0         is nCell x 1 shuffled null hypothesis spread 
+%                           (using spreadfun of the distribution of bootfun
+%                           estimates)
+%                           
 %           bootstat    is nBoot x nCell spike rates from shuffled times
 %                           (using bootfun for each sample estimate)
 %           xsam        is nWindows x nCell raw spike rate in the windows
@@ -50,6 +59,11 @@ function [h,p,d,x,H0,bootstat,xsam] = testTimeShuffles(S,tIn,tOut,tStart,tEnd,va
 %           Number of boots (times to reshuffle spikes). The above equation
 %           ensures that each tail gets a minimum of 10 boots for comparing
 %           the sample.
+% ratefun   (default: @spikeRate)
+%           Function handle to apply to each window between tIn and tOut of
+%           S. The default assumes that we want the number of spikes
+%           between tIn and tOut, divided by the tOut-tIn duration, for
+%           each window in the sample.
 % bootfun   (default: @nanmean)
 %           Function handle to apply to sampling distribution of rates in
 %           each boot. The default assumes a sampling distribution of the
@@ -62,14 +76,23 @@ function [h,p,d,x,H0,bootstat,xsam] = testTimeShuffles(S,tIn,tOut,tStart,tEnd,va
 %           difffun defines what the central tendency of the sampling
 %           distribution will be taken to be. By default, the central
 %           tendency of the distribution of sample rates is the mean.
+% spreadfun (default: @nanstd)
+%           Function handle of spread of sampling distribution for
+%           standardized difference between observed rate and null
+%           hypothesis rate. spreadfun defines what the spread of the
+%           sampling distribution will be taken to be. By default, the
+%           spread of the distribution of sample rates is the standard
+%           deviation.
 %
 
 alpha=0.05;
 tails=2;
 t0 = tStart;
 t1 = tEnd;
+ratefun = @spikeRate;
 bootfun = @nanmean;
 difffun = @nanmean;
+spreadfun = @nanstd;
 process_varargin(varargin);
 
 % Tails must be -1, 1 or 2.
@@ -133,7 +156,7 @@ for iC=1:length(S)
         time1 = clock;
         k=k+1;
         bootStat0=nan(nBoots,1);
-        xbar(iC) = bootfun(length(data(Sc.restrict(tIn,tOut)))./(tOut-tIn));
+        xbar(iC) = bootfun(ratefun(Sc,tIn,tOut));
         fprintf('\nCell %d (%d spikes):',k,length(Sc.data))
         parfor boot=1:nBoots;
             tc = sort(t0+rand(length(tIn),1)*(t1-t0))
@@ -143,8 +166,7 @@ for iC=1:length(S)
             %[tShuffleStart,tShuffleEnd,stuck] = ShuffleTimeWindows(tStart,tEnd,tIn,tOut);
             if ~stuck
                 tBoot = [tShuffleStart tShuffleEnd];
-                nBoot=length(data(Sc.restrict(tBoot(:,1),tBoot(:,2))));
-                rBoot=nBoot./(tBoot(:,2)-tBoot(:,1));
+                rBoot = ratefun(Sc,tBoot(:,1),tBoot(:,2));
                 bootStat0(boot) = bootfun(rBoot);
             else
                 bootStat0(boot) = nan;
@@ -185,12 +207,18 @@ if nargout>2
     d=xbar-(difffun(bootstat))';
 end
 if nargout>3
-    x=xbar;
+    z=(xbar-(difffun(bootstat))')./(spreadfun(bootstat)+eps)';
 end
 if nargout>4
-    H0=difffun(bootstat)';
+    x=xbar;
 end
 if nargout>5
+    H0=difffun(bootstat)';
+end
+if nargout>6
+    SD0=spreadfun(bootstat)';
+end
+if nargout>7
     xsam= nan(length(tIn),length(S));
     for iC=1:length(S)
         for iWin=1:length(tIn)
@@ -198,6 +226,10 @@ if nargout>5
         end
     end
 end
+
+function rate = spikeRate(S,tIn,tOut)
+n = spikeCount(S,tIn,tOut);
+rate = n/(tOut-tIn+eps);
 
 function nSpikes = spikeCount(S,tIn,tOut)
 nSpikes=nan(length(tIn),1);
