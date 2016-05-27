@@ -24,7 +24,7 @@ if ~isnan(T)
     end
 else
     I = nan;
-end
+    
 if ~isnan(I)
     L = S.Zt(I);
 else
