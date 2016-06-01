@@ -33,6 +33,8 @@ function [fdSorted,sdCA] = sortSessDimByExpKey(fd,D,varargin)
 %           chronologically)
 % 'SessNum' (Chronologically-ordered session number for each unique
 %            combination of the other dimensions)
+% 'Subj'    (Same as Rat except any A0 alphanumeric designation)
+% 'SubjNum' (Same as RatNum except any A0 alphanumeric designation)
 % 
 % Session will ignore any non-Rat dimensions, so it represents the true
 % rat's chronological session number. If the rat has 4 sessions, 2 of Drug
@@ -257,7 +259,12 @@ for iD=1:length(fd);
     delim = regexpi(d,'\');
     % Create "special" keys.
     SSN{iD} = d(max(delim)+1:end);
-    id1 = regexp(SSN{iD},'R');
+    id1 = min(regexp(SSN{iD},'[A-Z][0-9]'));
+    id2 = min(regexpi(SSN{iD},'-'));
+    Subj{iD} = SSN{iD}(id1:id2-1);
+    SubjNum{iD} = str2num(SSN{iD}(id1+1:id2-1));
+    Date{iD} = SSN{iD}(id2+1:end);
+    id1 = min(regexp(SSN{iD},'R'));
     id2 = min(regexpi(SSN{iD},'-'));
     Rat{iD} = SSN{iD}(id1:id2-1);
     RatNum{iD} = str2num(SSN{iD}(id1+1:id2-1));
@@ -297,6 +304,8 @@ for iD=1:length(fd);
         disp(['No ' keysfn ' keys file.'])
     end
     popdir;
+    ExpKeys.Subj = Subj{iD};
+    ExpKeys.SubjNum = SubjNum{iD};
     ExpKeys.Rat = Rat{iD};
     ExpKeys.Date = Date{iD};
     ExpKeys.SSN = SSN{iD};

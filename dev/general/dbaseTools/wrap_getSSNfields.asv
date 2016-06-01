@@ -171,8 +171,8 @@ sz = cellfun(@length,R.dimLevels);
 %         nT(iS,1:nTrials(iS)) = 1:nTrials(iS);
 %     end
 % end
-nT = reshape(nT,sz);
-R.Trial = nT;
+%nT = reshape(nT,sz);
+%R.Trial = nT;
 
 R.size = sz;
 R.fdSorted = fdSorted;
