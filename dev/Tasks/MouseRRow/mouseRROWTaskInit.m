@@ -11,7 +11,6 @@ fd = pwd;
 if nargin==1
     fd = varargin{1};
 end
-addSpikes=false;
 process_varargin(varargin);
 
 if nargin==0
@@ -60,6 +59,16 @@ assert(exist(keysfn, 'file')==2, 'Cannot find keys file %s.', keysfn);
 eval(fn);
 %load(keysfn);
 sd.ExpKeys = ExpKeys;
+
+%-------------------------
+% Add RedishLab fields
+%-------------------------
+sd.ZoneDelay = sd.Offer;
+sd.ZoneIn = sd.Flavor;
+idOK = ~isnan(sd.ZoneIn);
+sd.nPellets = nan(length(sd.ZoneIn),1);
+sd.nPellets(idOK) = sd.ExpKeys.PelletNumber(sd.ZoneIn(idOK));
+sd.pelletsDelivered = sd.nPellets .* double(sd.earned);
 
 %-------------------------
 % Calculate thresholds
