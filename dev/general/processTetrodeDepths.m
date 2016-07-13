@@ -1,8 +1,9 @@
 function processTetrodeDepths(fn,varargin)
 
 TTrow = true; % Indicates that tetrodes increment across rows, at one column per session.
-prefix = ''; % Indicates that sessions are prefixed with this directory first.
-readFcn = @xlsread;
+dirprefix = ''; % Indicates that sessions are prefixed with this directory first.
+prefix = '';    % Indicates that session directories are prefixed with this string first.
+readFcn = @xlsread; % Function used to read the file.
 process_varargin(varargin);
 
 [depths,labels] = readFcn(fn);
@@ -18,10 +19,10 @@ end
 ca = cell(length(TT),2);
 ca(:,1) = TT;
 for iFd = 1:length(SSN)
-    if ~isempty(prefix)
-        pushdir(prefix);
+    if ~isempty(dirprefix)
+        pushdir(dirprefix);
     end
-    fd = SSN{iFd};
+    fd = [prefix SSN{iFd}];
     if exist(fd,'dir')==7
         pushdir(fd);
         disp(fd);
@@ -33,7 +34,7 @@ for iFd = 1:length(SSN)
     else
         disp([fd ' does not exist.'])
     end
-    if ~isempty(prefix)
+    if ~isempty(dirprefix)
         popdir;
     end
 end

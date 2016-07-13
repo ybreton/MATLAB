@@ -298,14 +298,16 @@ for d = 1 : length(fd)
         sourceNCS = FindFiles('R*.ncs','CheckSubdirs',0);
         sourceNEV = FindFiles('R*.nev','CheckSubdirs',0);
         sourceT = FindFiles('R*.t','CheckSubdirs',0);
+        sourceT64 = FindFiles('R*.t64','CheckSubdirs',0);
         sourceUST = FindFiles('R*._t','CheckSubdirs',0);
+        sourceUST64 = FindFiles('R*._t64','CheckSubdirs',0);
         sourceCQ = FindFiles('R*-CluQual.mat','CheckSubdirs',0);
         sourceWV = FindFiles('R*-wv.mat','CheckSubdirs',0);
         sourceZIP = FindFiles('R*-VT*.zip','CheckSubdirs',0);
         sourceVT = FindFiles('R*-VT.mat','CheckSubdirs',0);
         sourceTXT = FindFiles('RR-*.txt','CheckSubdirs',0);
         
-        sources = cat(1,sourceSD,sourceKEYS,sourceNCS,sourceNEV,sourceT,sourceUST,sourceCQ,sourceWV,sourceZIP,sourceVT,sourceTXT);
+        sources = cat(1,sourceSD,sourceKEYS,sourceNCS,sourceNEV,sourceT,sourceT64,sourceUST,sourceUST64,sourceCQ,sourceWV,sourceZIP,sourceVT,sourceTXT);
         
         for iFile = 1 : length(sources)
             fromFile = sources{iFile};

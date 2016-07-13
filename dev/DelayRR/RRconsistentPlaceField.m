@@ -81,7 +81,7 @@ SS = nan(size(combos,1),1);
                 x = F.x(iSeq,iF);
                 y = F.y(iSeq,iF);
                 t = times(iSeq);
-                L(iSeq) = RRlinearizedVal(sd,t,x,y);
+                L(iSeq) = RRlinearizedVal(sd,x,y);
             end
         end 
 

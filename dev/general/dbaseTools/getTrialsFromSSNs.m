@@ -14,7 +14,7 @@ for iSSN=1:length(directories)
         nSubsess(iSSN) = length(sd);
         for iSubsess=1:nSubsess(iSSN)
             sd0 = sd(iSubsess);
-            nTrials(iSSN) = numel(sd.EnteringZoneTime);
+            nTrials(iSSN) = max(nTrials(iSSN),numel(sd0.EnteringZoneTime));
         end
         popdir;
     end

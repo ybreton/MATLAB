@@ -121,6 +121,9 @@ for iSess=1:length(sd0)
     
     disp('Velocity and acceleration...')
     sd = sdVelocity(sd);
+    
+    disp('Max/min speed...')
+    
 
     disp('Curvature...')
     sd = sdCurvature(sd);
@@ -152,8 +155,8 @@ for iSess=1:length(sd0)
     disp('Zone occupancy tsd...')
     sd = sdZoneInTsd(sd,'Rtime',[0 5]);
     
-    disp('Linearized position...')
-    sd = sdRRlinearize(sd,'nxbins',nxbins,'nybins',nybins);
+    %disp('Linearized position...')
+    %sd = sdRRlinearize(sd,'nxbins',nxbins,'nybins',nybins);
     
     sdOut(iSess) = sd;
 end

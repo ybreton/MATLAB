@@ -22,7 +22,7 @@ function [t64,success] = nttclu2t64(filenames,varargin)
 % 	Displays debugging plots indicating cluster number vs. spike time as recorded on disk
 % progressBar 	(default true)
 % 	Displays a progress bar that updates with every file. Requires the timedProgressBar class.
-% name_t 		(default {'maybe' 'cut' 'cutoff' 'doublet' 'ghost' 'bad'})
+% name_t 		(default {'maybe' 'cut' 'cutoff' 'doublet' 'ghost' 'bad' 'sparse'})
 % 	Strings contained in cluster names that should be automatically dumped to _t files.
 %
 % Example:
@@ -85,14 +85,18 @@ for iF=1:length(filenames)
             name = C.name;
             use__t = strCheckANY(name_t,name); % Are any of the strings in name_t contained in name?
             
-            pushdir(fd);
+            if ~isempty(fd)
+                pushdir(fd);
+            end
             if exist(fullfile(fd,[fn2 '.t']),'file')==2
                 use__t = false;
             end
             if exist(fullfile(fd,[fn2 '._t']),'file')==2
                 use__t = true;
             end
-            popdir;
+            if ~isempty(fd)
+                popdir;
+            end
             
             if use__t
                 fx2 = '._t64';

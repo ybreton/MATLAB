@@ -85,8 +85,8 @@ for iSSN=1:length(directories)
             
             for iField=1:nFields
                 disp(['Extracting ' field{iField} '...'])
-                if isfield(sd0(iSubsess),field{iField})
-                    val = sd0(iSubsess).(field{iField});
+                if isfield(sd0,field{iField})
+                    val = sd0.(field{iField});
                     nTrials = numel(val);
                     if nSubsessMax==1
                         val = reshape(val,[ones(1,length(sz)) nTrials]);

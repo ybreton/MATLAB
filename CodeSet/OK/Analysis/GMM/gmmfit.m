@@ -8,6 +8,11 @@ function [gmobj,mus,Sigmas,taus] = gmmfit(x,k,varargin)
 % and
 %               x is a n x d matrix of observations
 %               k is the number of components to fit.
+%
+% if k is omitted or empty, gmmfit will find the BIC-best number of
+% components by fitting increasingly many until the BIC decreases by less
+% than 2 or increases.
+%
 % OPTIONAL:
 % ~~~~~~~~
 % Regularize    add a regularization constant to covariance matrix (default eps)
@@ -17,6 +22,9 @@ function [gmobj,mus,Sigmas,taus] = gmmfit(x,k,varargin)
 % Replicates    number of times to repeat process (default 1)
 % Options       statset options structure (default is gmdistribution.fit default)
 % Sorting       dimensions to sort on (default is 1 to d, in order, ascending)
+%
+% YAB 2016-06-15: Added ability to automatically search for best k if k is omitted or
+% empty.
 
 if size(x,1)==1 & any(size(x)>1);
     x = x';
@@ -29,9 +37,36 @@ SharedCov = false;
 Start = 'randSample';
 Replicates = 1;
 Sorting = [1:d];
+BICthresh = 2;
 process_varargin(varargin);
 
-gmm = gmdistribution.fit(x,k,'Regularize',Regularize,'Options',Options,'CovType',CovType,'SharedCov',SharedCov,'Start',Start,'Replicates',Replicates);
+if nargin<2
+    disp('Finding BIC-best GMM.')
+    k = [];
+end
+
+if ~isempty(k)
+    gmm = gmdistribution.fit(x,k,'Regularize',Regularize,'Options',Options,'CovType',CovType,'SharedCov',SharedCov,'Start',Start,'Replicates',Replicates);
+else
+    k = 1;
+    disp(['Fitting ' num2str(k) ' components.'])
+    gmm = gmdistribution.fit(x,k,'Regularize',Regularize,'Options',Options,'CovType',CovType,'SharedCov',SharedCov,'Start',Start,'Replicates',Replicates);
+    BICnew = gmm.BIC;
+    disp(['BIC: ' num2str(BICnew)])
+    deltaBIC = inf;
+    while deltaBIC>BICthresh
+        k = k+1;
+        BICold = BICnew;
+        disp(['Fitting ' num2str(k) ' components.'])
+        gmm = gmdistribution.fit(x,k,'Regularize',Regularize,'Options',Options,'CovType',CovType,'SharedCov',SharedCov,'Start',Start,'Replicates',Replicates);
+        BICnew = gmm.BIC;
+        disp(['BIC: ' num2str(BICnew)])
+        deltaBIC = BICold - BICnew;
+    end
+    k = k-1;
+    disp(['BIC-best GMM: ' num2str(k) ' components.'])
+    gmm = gmdistribution.fit(x,k,'Regularize',Regularize,'Options',Options,'CovType',CovType,'SharedCov',SharedCov,'Start',Start,'Replicates',Replicates);
+end
 
 mus = gmm.mu;
 [mus,idSort] = sortrows(mus,Sorting);

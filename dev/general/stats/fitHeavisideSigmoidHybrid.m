@@ -76,7 +76,9 @@ if threshold>minThresh && threshold<maxThresh
     if output
         disp('Fitting sigmoid...')
     end
+    warning('off')
     B = sigmoidfit(x,y);
+    warning('on')
     thresholdS = B(1,:);
     
     if thresholdS<=maxThresh && thresholdS>=minThresh;
@@ -87,12 +89,15 @@ end
 if nargout>1
     [~,bootsam]=bootstrp(nboot,@mean,y);
     bootstat = nan(nboot,1);
-    parfor iBoot=1:nboot
+    pbh=timedProgressBar('Bootstrap errors & confidence intervals',nboot);
+    for iBoot=1:nboot
         idx = bootsam(:,iBoot);
         x0 = x(idx);
         y0 = y(idx);
         bootstat(iBoot) = fitHeavisideSigmoidHybrid(x0,y0);
+        pbh=pbh.update();
     end
+    pbh.close();
     bootSE = nanstd(bootstat);
     bootCI(1) = prctile(bootstat,100*alpha/2);
     bootCI(2) = prctile(bootstat,100*(1-alpha/2));

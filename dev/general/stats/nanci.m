@@ -48,7 +48,7 @@ if nargin<3
     FLAG=false;
 end
 
-
+m = nanmean(x,DIM);
 s = nanstderr2(x,FLAG,DIM);
 n = sum(~isnan(x),DIM);
 df = n-1;
